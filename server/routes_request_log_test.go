@@ -88,6 +88,34 @@ func TestInferenceRequestLoggerMiddlewareWritesReplayArtifacts(t *testing.T) {
 	}
 }
 
+func TestInferenceRequestLoggerMiddlewareWritesArtifactsBeforeHandler(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	logDir := t.TempDir()
+	requestLogger := &inferenceRequestLogger{dir: logDir}
+	const route = "/api/generate"
+
+	r := gin.New()
+	r.POST(route, requestLogger.middleware(route), func(c *gin.Context) {
+		bodyFiles, err := filepath.Glob(filepath.Join(logDir, "*_api_generate_body.json"))
+		if err != nil {
+			t.Fatalf("failed to glob body logs: %v", err)
+		}
+		if len(bodyFiles) != 1 {
+			t.Fatalf("expected request artifact before handler, got %d (%v)", len(bodyFiles), bodyFiles)
+		}
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, route, strings.NewReader(`{"model":"test-model"}`))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+}
+
 func TestNewInferenceRequestLoggerCreatesDirectory(t *testing.T) {
 	requestLogger, err := newInferenceRequestLogger()
 	if err != nil {
