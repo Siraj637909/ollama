@@ -79,8 +79,10 @@ func (l *inferenceRequestLogger) middleware(route string) gin.HandlerFunc {
 			}
 		}
 
-		c.Next()
+		// Persist the captured request before the handler starts inference. This
+		// keeps the replay artifact available when a request blocks or crashes.
 		l.log(route, method, scheme, host, contentType, body)
+		c.Next()
 	}
 }
 
